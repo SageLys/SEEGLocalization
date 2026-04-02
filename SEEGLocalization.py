@@ -388,6 +388,8 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if path:
             node = slicer.util.loadVolume(path)
             slicer.util.setSliceViewerLayers(background=node)
+            self.mriSelector.setCurrentNode(node)
+            self.statusLabel.setStyleSheet("color: #4caf50; font-size: 12px;")
             self.statusLabel.setText(f"✔  MRI chargé : {os.path.basename(path)}")
 
     def _onLoadCT(self):
@@ -396,6 +398,8 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if path:
             node = slicer.util.loadVolume(path)
             slicer.util.setSliceViewerLayers(foreground=node, foregroundOpacity=0.5)
+            self.ctSelector.setCurrentNode(node)
+            self.statusLabel.setStyleSheet("color: #4caf50; font-size: 12px;")
             self.statusLabel.setText(f"✔  CT chargé : {os.path.basename(path)}")
 
     def _onRunAIDetection(self):
