@@ -60,6 +60,26 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             QTabBar::tab      { background: #2a2a2a; color: #aaa;
                                 padding: 8px 18px; border-radius: 4px 4px 0 0; }
             QTabBar::tab:selected { background: #3a7bd5; color: white; font-weight: bold; }
+            
+            /* --- UI Readability Fix (Black text on black background) --- */
+            QLabel, QCheckBox, QRadioButton {
+                color: white;
+            }
+            QLineEdit, QComboBox, qMRMLNodeComboBox {
+                background-color: #2a2a2a;
+                color: white;
+                border: 1px solid #555;
+                border-radius: 3px;
+                padding: 4px;
+            }
+            QComboBox::drop-down {
+                border-left: 1px solid #555;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #2a2a2a;
+                color: white;
+                selection-background-color: #3a7bd5;
+            }
         """)
 
         self._buildDataTab()
