@@ -88,6 +88,7 @@ class ElectrodeManager:
 
         self._nodes[elec_id] = node
         self._applyStatusColor(elec_id)
+        self._updateVisibility(elec_id)
 
     def removeElectrode(self, elec_id: str):
         if elec_id in self._nodes:
@@ -113,10 +114,9 @@ class ElectrodeManager:
     #  Visibilité & apparence
     # ─────────────────────────────────────────────────────────────────────────
     def setVisibility(self, elec_id: str, visible: bool):
-        self._electrodes[elec_id]["visible"] = visible
-        node = self._nodes.get(elec_id)
-        if node:
-            node.GetDisplayNode().SetVisibility(1 if visible else 0)
+        if elec_id in self._electrodes:
+            self._electrodes[elec_id]["visible"] = visible
+            self._updateVisibility(elec_id)
 
     def setGlobalOpacity(self, opacity: float):
         """opacity : 0.0 – 1.0"""
@@ -158,24 +158,62 @@ class ElectrodeManager:
     # ─────────────────────────────────────────────────────────────────────────
     #  Filtres
     # ─────────────────────────────────────────────────────────────────────────
-    def applyConfidenceThreshold(self, threshold: float):
-        """Masque les électrodes dont la confiance est < threshold."""
+    def setConfidenceThreshold(self, threshold: float):
+        """Définit le seuil de confiance et met à jour l'affichage."""
         self._confThreshold = threshold
-        for elec_id, elec in self._electrodes.items():
-            visible = elec.get("confidence", 0) >= threshold and elec.get("visible", True)
-            node = self._nodes.get(elec_id)
-            if node:
-                node.GetDisplayNode().SetVisibility(1 if visible else 0)
+        self._updateVisibility()
+
+    def setStatusFilter(self, show: dict):
+        """Définit le filtre par statut et met à jour l'affichage."""
+        self._statusFilter = show
+        self._updateVisibility()
+
+    def applyConfidenceThreshold(self, threshold: float):
+        """(Déprécié, compatibilité) Masque les électrodes dont la confiance est < threshold."""
+        self.setConfidenceThreshold(threshold)
 
     def applyStatusFilter(self, show: dict):
-        """show = {"validated": bool, "average": bool, "low": bool}"""
-        self._statusFilter = show
-        for elec_id, elec in self._electrodes.items():
-            status  = elec.get("status", "low")
-            visible = show.get(status, True) and elec.get("visible", True)
-            node = self._nodes.get(elec_id)
+        """(Déprécié, compatibilité) show = {"validated": bool, "average": bool, "low": bool}"""
+        self.setStatusFilter(show)
+
+    def _passesFilters(self, elec_id: str) -> bool:
+        """Vérifie si une électrode passe les filtres globaux (confiance, statut)."""
+        elec = self._electrodes.get(elec_id)
+        if not elec:
+            return False
+            
+        # Filtre de confiance
+        if elec.get("confidence", 0) < self._confThreshold:
+            return False
+            
+        # Filtre de statut
+        status = elec.get("status", "low")
+        if not self._statusFilter.get(status, True):
+            return False
+            
+        return True
+
+    def _updateVisibility(self, elec_id: str = None):
+        """Met à jour la visibilité 3D d'une ou de toutes les électrodes selon l'état et les filtres."""
+        electrodes_to_update = [elec_id] if elec_id is not None else list(self._electrodes.keys())
+        for e_id in electrodes_to_update:
+            node = self._nodes.get(e_id)
             if node:
-                node.GetDisplayNode().SetVisibility(1 if visible else 0)
+                is_visible = self.isElectrodeEffectivelyVisible(e_id)
+                node.GetDisplayNode().SetVisibility(1 if is_visible else 0)
+
+    def isElectrodeEffectivelyVisible(self, elec_id: str) -> bool:
+        """Retourne True si l'électrode est visible manuellement ET passe les filtres."""
+        elec = self._electrodes.get(elec_id)
+        if not elec:
+            return False
+        
+        # Vérifie la visibilité manuelle
+        if not elec.get("visible", True):
+            return False
+            
+        # Vérifie les filtres globaux
+        return self._passesFilters(elec_id)
 
     # ─────────────────────────────────────────────────────────────────────────
     #  Interne
