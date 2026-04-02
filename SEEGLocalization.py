@@ -184,7 +184,7 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # ── Charger volumes depuis le disque ─────────────────────────────────
         loadBox = ctk.ctkCollapsibleGroupBox()
         loadBox.title = "Charger depuis le disque"
-        loadBox.collapsed = True
+        loadBox.collapsed = False
         loadBox.setStyleSheet("QGroupBox { color: white; font-weight: bold; }")
         loadLayout = qt.QVBoxLayout(loadBox)
 
