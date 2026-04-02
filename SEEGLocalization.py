@@ -458,6 +458,8 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.electrodeManager.addElectrode(elec)
 
         self._refreshElectrodeTable()
+        if self.electrodeTable.rowCount > 0:
+            self.electrodeTable.selectRow(0)
         self.progressBar.setVisible(False)
 
     def _onAIError(self, message):
@@ -525,6 +527,7 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "low":       self.showLowConfCheck.isChecked(),
         }
         self.electrodeManager.applyStatusFilter(show)
+        self._refreshElectrodeTable()
 
     # ─────────────────────────────────────────────────────────────────────────
     #  CALLBACKS – EXPORT
@@ -559,7 +562,14 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     #  Helpers
     # ─────────────────────────────────────────────────────────────────────────
     def _refreshElectrodeTable(self):
+        # Sauvegarder la sélection actuelle
+        selected_ids = []
+        for item in self.electrodeTable.selectedItems():
+            if item.column() == 1:
+                selected_ids.append(item.text())
+
         electrodes = self.electrodeManager.getAllElectrodes()
+        self.electrodeTable.blockSignals(True)
         self.electrodeTable.setRowCount(0)
         self._electrodeRows.clear()
 
@@ -567,6 +577,13 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             row = self.electrodeTable.rowCount
             self.electrodeTable.insertRow(row)
             self._electrodeRows[elec["id"]] = row
+
+            node = self.electrodeManager._nodes.get(elec["id"])
+            is_displayed = False
+            if node and node.GetDisplayNode():
+                is_displayed = (node.GetDisplayNode().GetVisibility() == 1)
+
+            text_color = qt.QBrush(qt.QColor(255, 255, 255) if is_displayed else qt.QColor(119, 119, 119))
 
             # Visibility checkbox
             visWidget = qt.QWidget()
@@ -576,26 +593,52 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             visCheck = qt.QCheckBox()
             visCheck.setChecked(elec.get("visible", True))
             elecId = elec["id"]
-            visCheck.stateChanged.connect(
-                lambda state, eid=elecId: self.electrodeManager.setVisibility(eid, state == qt.Qt.Checked)
-            )
+
+            def make_on_vis_changed(eid, r, status):
+                def on_changed(state):
+                    self.electrodeManager.setVisibility(eid, state == qt.Qt.Checked)
+                    # Mettre à jour la couleur du texte si la visibilité change
+                    node_local = self.electrodeManager._nodes.get(eid)
+                    is_disp = False
+                    if node_local and node_local.GetDisplayNode():
+                        is_disp = (node_local.GetDisplayNode().GetVisibility() == 1)
+                    
+                    color = qt.QColor(255, 255, 255) if is_disp else qt.QColor(119, 119, 119)
+                    brush = qt.QBrush(color)
+                    for col in range(1, 4):
+                        item_local = self.electrodeTable.item(r, col)
+                        if item_local:
+                            item_local.setForeground(brush)
+                            
+                    status_w = self.electrodeTable.cellWidget(r, 4)
+                    if status_w:
+                        dot_label = status_w.findChild(qt.QLabel)
+                        if dot_label:
+                            dot_color = self._statusColor(status) if is_disp else "#777777"
+                            dot_label.setStyleSheet(f"color: {dot_color}; font-size: 18px;")
+                return on_changed
+
+            visCheck.stateChanged.connect(make_on_vis_changed(elecId, row, elec.get("status", "low")))
             visLayout.addWidget(visCheck)
             self.electrodeTable.setCellWidget(row, 0, visWidget)
 
             # ID
             idItem = qt.QTableWidgetItem(elec["id"])
             idItem.setTextAlignment(qt.Qt.AlignCenter)
+            idItem.setForeground(text_color)
             self.electrodeTable.setItem(row, 1, idItem)
 
             # Contacts
             cItem = qt.QTableWidgetItem(str(elec.get("contacts", 0)))
             cItem.setTextAlignment(qt.Qt.AlignCenter)
+            cItem.setForeground(text_color)
             self.electrodeTable.setItem(row, 2, cItem)
 
             # Confidence
             confPct = int(elec.get("confidence", 0) * 100)
             confItem = qt.QTableWidgetItem(f"{confPct}%")
             confItem.setTextAlignment(qt.Qt.AlignCenter)
+            confItem.setForeground(text_color)
             self.electrodeTable.setItem(row, 3, confItem)
 
             # Status (pastille colorée)
@@ -604,12 +647,20 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             statusLayout.setAlignment(qt.Qt.AlignCenter)
             statusLayout.setContentsMargins(0, 0, 0, 0)
             dot = qt.QLabel("●")
-            color = self._statusColor(elec.get("status", "low"))
-            dot.setStyleSheet(f"color: {color}; font-size: 18px;")
+            dot_color = self._statusColor(elec.get("status", "low")) if is_displayed else "#777777"
+            dot.setStyleSheet(f"color: {dot_color}; font-size: 18px;")
             statusLayout.addWidget(dot)
             self.electrodeTable.setCellWidget(row, 4, statusWidget)
 
             self.electrodeTable.setRowHeight(row, 32)
+            
+        self.electrodeTable.blockSignals(False)
+
+        # Restaurer la sélection
+        for r in range(self.electrodeTable.rowCount):
+            item = self.electrodeTable.item(r, 1)
+            if item and item.text() in selected_ids:
+                self.electrodeTable.selectRow(r)
 
     def _statusColor(self, status):
         return {"validated": "#4caf50", "average": "#ff9800", "low": "#f44336"}.get(status, "#888")
@@ -655,10 +706,27 @@ class SEEGLocalizationLogic(ScriptedLoadableModuleLogic):
                 errorCallback(str(e))
 
     def centerViewsOnPoint(self, x, y, z):
-        """Centre les vues 2D sur un point RAS donné."""
+        """Centre les vues 2D et 3D sur un point RAS donné."""
         layoutManager = slicer.app.layoutManager()
+        
+        # 2D views
         for name in ["Red", "Green", "Yellow"]:
             sliceWidget = layoutManager.sliceWidget(name)
             if sliceWidget:
                 sliceNode = sliceWidget.mrmlSliceNode()
                 sliceNode.JumpSliceByCentering(x, y, z)
+                
+        # 3D views
+        for i in range(layoutManager.threeDViewCount):
+            threeDWidget = layoutManager.threeDWidget(i)
+            if threeDWidget:
+                cameraNode = slicer.modules.cameras.logic().GetViewActiveCameraNode(threeDWidget.mrmlViewNode())
+                if cameraNode:
+                    camera = cameraNode.GetCamera()
+                    focalPoint = np.array(camera.GetFocalPoint())
+                    position = np.array(camera.GetPosition())
+                    targetPoint = np.array([x, y, z])
+                    translation = targetPoint - focalPoint
+                    
+                    camera.SetFocalPoint(targetPoint)
+                    camera.SetPosition(position + translation)
