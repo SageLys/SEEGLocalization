@@ -755,13 +755,18 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 # ─────────────────────────────────────────────────────────────────────────────
 class SEEGLocalizationLogic(ScriptedLoadableModuleLogic):
 
-    def runAIDetection(self, mriNode, ctNode,
-                       progressCallback=None,
-                       completionCallback=None,
-                       errorCallback=None):
-        """Lance la détection IA en utilisant AIDetectionWorker."""
+    def runAIDetection(self, ctNode, mriNode=None, onnxPath=None, modelsXmlPath=None,
+                   progressCallback=None,
+                   completionCallback=None,
+                   errorCallback=None):               
+        """Lance la détection IA réelle via AIDetectionWorker adapté au CT thresholded."""
         try:
-            worker = AIDetectionWorker(mriNode, ctNode)
+            worker = AIDetectionWorker(
+                ctNode=ctNode,
+                mriNode=mriNode,
+                onnxPath=onnxPath,
+                modelsXmlPath=modelsXmlPath,
+            )
             electrodes = worker.run(progressCallback=progressCallback)
             if completionCallback:
                 completionCallback(electrodes)
