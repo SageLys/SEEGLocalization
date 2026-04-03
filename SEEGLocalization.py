@@ -113,35 +113,39 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         layout.setContentsMargins(12, 14, 12, 14)
         layout.setSpacing(10)
 
+        moduleDir = os.path.dirname(os.path.abspath(__file__))
+        defaultModelPath = os.path.join(moduleDir, "Resources", "model", "model_contacts.onnx")
+        defaultXmlPath = os.path.join(moduleDir, "Resources", "config", "electrodeModels.xml")
+
         # ── Section Selection ────────────────────────────────────────────────
         selBox = ctk.ctkCollapsibleGroupBox()
         selBox.title = "Selection"
         selBox.setStyleSheet("QGroupBox { color: white; font-weight: bold; }")
         selLayout = qt.QFormLayout(selBox)
 
-        # MRI T1
+        # MRI T1 (optional)
         self.mriSelector = slicer.qMRMLNodeComboBox()
         self.mriSelector.nodeTypes = ["vtkMRMLScalarVolumeNode"]
         self.mriSelector.selectNodeUponCreation = True
-        self.mriSelector.addEnabled  = False
+        self.mriSelector.addEnabled = False
         self.mriSelector.removeEnabled = False
-        self.mriSelector.noneEnabled = False
-        self.mriSelector.showHidden  = False
+        self.mriSelector.noneEnabled = True
+        self.mriSelector.showHidden = False
         self.mriSelector.setMRMLScene(slicer.mrmlScene)
-        self.mriSelector.setToolTip("Sélectionner le volume MRI T1 pré-opératoire")
-        selLayout.addRow("MRI T1 Volume", self.mriSelector)
+        self.mriSelector.setToolTip("MRI T1 optionnel : utilisé pour l'affichage et la vérification visuelle")
+        selLayout.addRow("MRI T1 Volume (optional)", self.mriSelector)
 
-        # CT Post-op
+        # CT thresholded (required)
         self.ctSelector = slicer.qMRMLNodeComboBox()
         self.ctSelector.nodeTypes = ["vtkMRMLScalarVolumeNode"]
-        self.ctSelector.selectNodeUponCreation = False
-        self.ctSelector.addEnabled  = False
+        self.ctSelector.selectNodeUponCreation = True
+        self.ctSelector.addEnabled = False
         self.ctSelector.removeEnabled = False
-        self.ctSelector.noneEnabled = True
-        self.ctSelector.showHidden  = False
+        self.ctSelector.noneEnabled = False
+        self.ctSelector.showHidden = False
         self.ctSelector.setMRMLScene(slicer.mrmlScene)
-        self.ctSelector.setToolTip("Sélectionner le volume CT post-opératoire")
-        selLayout.addRow("Post-Op CT Volume", self.ctSelector)
+        self.ctSelector.setToolTip("Sélectionner le volume ct_thresholded.nii.gz (entrée réelle du modèle)")
+        selLayout.addRow("Thresholded CT Volume (required)", self.ctSelector)
 
         layout.addWidget(selBox)
 
@@ -151,7 +155,32 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         aiBox.setStyleSheet("QGroupBox { color: white; font-weight: bold; }")
         aiLayout = qt.QVBoxLayout(aiBox)
 
-        self.runAIButton = qt.QPushButton("Run AI Detection (3D U-Net)")
+        # Small hint
+        self.modelInputHint = qt.QLabel(
+            "Entrée réelle du modèle : ct_thresholded.nii.gz\n"
+            "MRI = optionnel, pour affichage uniquement."
+        )
+        self.modelInputHint.setStyleSheet("color: #aaa; font-size: 11px; padding: 4px;")
+        self.modelInputHint.setAlignment(qt.Qt.AlignCenter)
+        aiLayout.addWidget(self.modelInputHint)
+
+        # ONNX path
+        self.onnxPathEdit = ctk.ctkPathLineEdit()
+        self.onnxPathEdit.filters = ctk.ctkPathLineEdit.Files
+        self.onnxPathEdit.currentPath = defaultModelPath if os.path.exists(defaultModelPath) else ""
+        self.onnxPathEdit.setToolTip("Chemin vers le fichier ONNX du modèle")
+        aiLayout.addWidget(qt.QLabel("Model ONNX path"))
+        aiLayout.addWidget(self.onnxPathEdit)
+
+        # XML path
+        self.modelsXmlPathEdit = ctk.ctkPathLineEdit()
+        self.modelsXmlPathEdit.filters = ctk.ctkPathLineEdit.Files
+        self.modelsXmlPathEdit.currentPath = defaultXmlPath if os.path.exists(defaultXmlPath) else ""
+        self.modelsXmlPathEdit.setToolTip("Chemin vers electrodeModels.xml (optionnel mais recommandé)")
+        aiLayout.addWidget(qt.QLabel("Electrode models XML path"))
+        aiLayout.addWidget(self.modelsXmlPathEdit)
+
+        self.runAIButton = qt.QPushButton("Run AI Detection (thresholded CT → ONNX)")
         self.runAIButton.setStyleSheet("""
             QPushButton {
                 background: #3a7bd5; color: white; font-weight: bold;
@@ -184,16 +213,16 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # ── Charger volumes depuis le disque ─────────────────────────────────
         loadBox = ctk.ctkCollapsibleGroupBox()
         loadBox.title = "Charger depuis le disque"
-        loadBox.collapsed = False
+        loadBox.collapsed = True
         loadBox.setStyleSheet("QGroupBox { color: white; font-weight: bold; }")
         loadLayout = qt.QVBoxLayout(loadBox)
 
-        self.loadMRIButton = qt.QPushButton("📂  Charger MRI T1 (.nii / .nii.gz)")
+        self.loadMRIButton = qt.QPushButton("📂  Charger MRI T1 (.nii / .nii.gz) [optionnel]")
         self.loadMRIButton.setStyleSheet(self._btnStyle("#555"))
         self.loadMRIButton.clicked.connect(self._onLoadMRI)
         loadLayout.addWidget(self.loadMRIButton)
 
-        self.loadCTButton = qt.QPushButton("📂  Charger CT Post-Op (.nii / .nii.gz)")
+        self.loadCTButton = qt.QPushButton("📂  Charger ct_thresholded (.nii / .nii.gz) [requis]")
         self.loadCTButton.setStyleSheet(self._btnStyle("#555"))
         self.loadCTButton.clicked.connect(self._onLoadCT)
         loadLayout.addWidget(self.loadCTButton)
@@ -304,7 +333,7 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.confThreshSlider = ctk.ctkSliderWidget()
         self.confThreshSlider.minimum = 0
         self.confThreshSlider.maximum = 100
-        self.confThreshSlider.value   = 92
+        self.confThreshSlider.value   = 0
         self.confThreshSlider.suffix  = "%"
         self.confThreshSlider.singleStep = 1
         self.confThreshSlider.valueChanged.connect(self._onConfidenceThresholdChanged)
@@ -407,38 +436,72 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             None, "Charger MRI T1", "", "NIfTI (*.nii *.nii.gz)")
         if path:
             node = slicer.util.loadVolume(path)
-            slicer.util.setSliceViewerLayers(background=node)
             self.mriSelector.setCurrentNode(node)
+
+            ctNode = self.ctSelector.currentNode()
+            if ctNode:
+                slicer.util.setSliceViewerLayers(background=node, foreground=ctNode, foregroundOpacity=0.5)
+            else:
+                slicer.util.setSliceViewerLayers(background=node)
+
             self.statusLabel.setStyleSheet("color: #4caf50; font-size: 12px;")
             self.statusLabel.setText(f"✔  MRI chargé : {os.path.basename(path)}")
 
     def _onLoadCT(self):
         path = qt.QFileDialog.getOpenFileName(
-            None, "Charger CT Post-Op", "", "NIfTI (*.nii *.nii.gz)")
+            None, "Charger ct_thresholded", "", "NIfTI (*.nii *.nii.gz)")
         if path:
             node = slicer.util.loadVolume(path)
-            slicer.util.setSliceViewerLayers(foreground=node, foregroundOpacity=0.5)
             self.ctSelector.setCurrentNode(node)
+
+            mriNode = self.mriSelector.currentNode()
+            if mriNode:
+                slicer.util.setSliceViewerLayers(background=mriNode, foreground=node, foregroundOpacity=0.5)
+            else:
+                slicer.util.setSliceViewerLayers(background=node)
+
             self.statusLabel.setStyleSheet("color: #4caf50; font-size: 12px;")
-            self.statusLabel.setText(f"✔  CT chargé : {os.path.basename(path)}")
+            self.statusLabel.setText(f"✔  CT thresholded chargé : {os.path.basename(path)}")
 
     def _onRunAIDetection(self):
-        mriNode = self.mriSelector.currentNode()
-        ctNode  = self.ctSelector.currentNode()
-        if not mriNode:
-            slicer.util.warningDisplay("Veuillez sélectionner un volume MRI T1.")
+        mriNode = self.mriSelector.currentNode()   # optionnel
+        ctNode = self.ctSelector.currentNode()     # requis
+        onnxPath = (self.onnxPathEdit.currentPath or "").strip()
+        modelsXmlPath = (self.modelsXmlPathEdit.currentPath or "").strip()
+
+        if not ctNode:
+            slicer.util.warningDisplay(
+                "Veuillez sélectionner un volume CT thresholded (ct_thresholded.nii.gz)."
+            )
             return
+
+        if not onnxPath or not os.path.exists(onnxPath):
+            slicer.util.warningDisplay(
+                "Veuillez sélectionner un fichier ONNX valide."
+            )
+            return
+
+        if modelsXmlPath and not os.path.exists(modelsXmlPath):
+            slicer.util.warningDisplay(
+                "Le fichier electrodeModels.xml indiqué est introuvable.\n"
+                "Le pipeline utilisera les espacements par défaut."
+            )
+            modelsXmlPath = ""
 
         self.runAIButton.setEnabled(False)
         self.progressBar.setVisible(True)
         self.progressBar.setValue(0)
+        self.statusLabel.setStyleSheet("color: #4caf50; font-size: 12px;")
         self.statusLabel.setText("Détection en cours…")
 
         self.logic.runAIDetection(
-            mriNode, ctNode,
-            progressCallback    = self._onAIProgress,
-            completionCallback  = self._onAICompleted,
-            errorCallback       = self._onAIError
+            ctNode=ctNode,
+            mriNode=mriNode,
+            onnxPath=onnxPath,
+            modelsXmlPath=modelsXmlPath,
+            progressCallback=self._onAIProgress,
+            completionCallback=self._onAICompleted,
+            errorCallback=self._onAIError,
         )
 
     def _onAIProgress(self, percent, message=""):
@@ -451,6 +514,7 @@ class SEEGLocalizationWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """electrodes : list[dict] avec keys id, contacts, confidence, coords"""
         self.progressBar.setValue(100)
         self.runAIButton.setEnabled(True)
+        self.statusLabel.setStyleSheet("color: #4caf50; font-size: 12px;")
         self.statusLabel.setText(f"✔  {len(electrodes)} électrode(s) détectée(s)")
 
         self.electrodeManager.clearAll()

@@ -1,0 +1,24 @@
+<?xml version="1.0" ?>
+<EpilepsyElectrodesModels>
+<ElectrodeModel isMicro="False" numPlots="4" name="SD04R-SP05X" contactSpacing="2.0" contactLength="2.41" diameter="1.1" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="4" name="SD04R-SP10X" contactSpacing="7.6" contactLength="2.41" diameter="1.1" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="6" name="SD06R-SP05X" contactSpacing="2.0" contactLength="2.41" diameter="1.1" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="6" name="SD06R-SP10X" contactSpacing="7.6" contactLength="2.41" diameter="1.1" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="8" name="SD08R-SP05X" contactSpacing="2.0" contactLength="2.41" diameter="1.1" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="8" name="SD08R-SP10X" contactSpacing="7.6" contactLength="2.41" diameter="1.1" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="10" name="SD10R-SP05X" contactSpacing="2.0" contactLength="2.41" diameter="1.1" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="12" name="SD12R-SP05X" contactSpacing="2.0" contactLength="2.41" diameter="1.1" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="True" numPlots="9" name="BF09R-SP61X-0BB" firstContactSpacing="1" contactSpacing="4.0" contactLength="1.57" diameter="1.28" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="5" name="TLS_STD_5" contactSpacing="3.5" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="8" name="TLS_STD_8" contactSpacing="3.5" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="10" name="TLS_STD_10" contactSpacing="3.5" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="12" name="TLS_STD_12" contactSpacing="3.5" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="15" name="TLS_STD_15" contactSpacing="3.5" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="18" name="TLS_STD_18" contactSpacing="3.5" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="15" name="TLS_MiM_50.9.8" contactSpacing="6.1" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="12" name="TLS_MiM_41.9.8" contactSpacing="4.8" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="10" name="TLS_MiM_33.9.8" contactSpacing="3.9" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="15" name="TLS_MiM_50.6.12" contactSpacing="4" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="12" name="TLS_MiM_42.6.12" contactSpacing="4" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+<ElectrodeModel isMicro="False" numPlots="10" name="TLS_MiM_34.6.12" contactSpacing="4" contactLength="2.0" diameter="0.8" distalTipOffset="1.0"/>
+</EpilepsyElectrodesModels>
